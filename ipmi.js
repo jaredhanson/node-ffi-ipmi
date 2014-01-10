@@ -77,6 +77,7 @@ function  run_command_string(intf, cmd_str) {
     libipmi.run_command_argv(intf, cmd_arr.length, argv);
 }
 
+// Allow any arbitrary command per interface session instance
 run_command_string(intf0, "user list");
 run_command_string(intf0, "chassis status");
 
