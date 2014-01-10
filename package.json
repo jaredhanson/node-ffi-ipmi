@@ -1,0 +1,44 @@
+{
+  "name": "ffi-ipmi",
+  "version": "1.0.0",
+  "authors": [
+      "Bob Bae",
+      "SpeedOps"
+  ],
+  "description": "A wrapper for ipmitool via node-ffi",
+  "keywords": [
+    "foreign",
+    "ipmi",
+    "function",
+    "interface",
+    "ffi",
+    "libffi",
+    "binding",
+    "c"
+  ],
+  "homepage": "http://github.com/speedops/node-ffi-ipmi",
+  "engines": {
+    "node": ">=0.6.0"
+  },
+  "main": "./ipmi",
+  "dependencies": {
+    "ffi": "*",
+    "ref": "*",
+    "ref-struct": "*"
+  },
+  "devDependencies": {
+    "expect.js": "*",
+    "mocha": "*",
+    "ref-array": "*"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/speedops/node-ffi-ipmi.git"
+  },
+  "bugs": {
+    "url": "http://github.com/speedops/node-ffi-ipmi/issues"
+  }
+}
