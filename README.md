@@ -27,6 +27,8 @@ what
 * do not want fork/exec or shelling out per command
 * do not want hundreds of boilerplate wrappers for each command combo 
 * make it fast and be async compatible
+* if you understand  ipmitool command or/and if the ipmitool command works for you this wrapper should work for you as well without having to figure out which C functions to call in which order
+* it does not prevent you from cooking up more javascripty / nicer API (see ipmi.c and ipmi.js for alternative API that are less stringy).
 
 example
 =======
