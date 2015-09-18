@@ -18,7 +18,7 @@
   ],
   "homepage": "http://github.com/speedops/node-ffi-ipmi",
   "engines": {
-    "node": ">=0.6.0"
+    "node": "0.10.20"
   },
   "main": "./ipmi",
   "dependencies": {

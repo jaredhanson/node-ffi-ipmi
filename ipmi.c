@@ -37,34 +37,9 @@
 
 #include "lanplus.h"
 
-// Bob: These are referened as global in ipmitool lib
 int csv_output = 0;
 int verbose = 0;
 
-// Bob: This file ipmi.c has to exist to be compiled into 
-// shared lib .so because the ipmitool lib is static.
-// ipmitool autoconf is not 100% well and it's not
-// immediately obvious when attempting to create a .so
-// Besides, we need additional C level wrapper to
-// do more sane API with additional error checking.
-
-#define OK 1
-
-extern struct ipmi_intf * ipmi_intf_load(char * name);
-
-struct ipmi_intf * ipmi_start_interface(char *intf_name, char *host, char *user, char *pass);
-extern int ipmi_finish_interface(struct ipmi_intf *intf);
-extern int ipmi_run_command(struct ipmi_intf *intf, int argc, char *argv[]);
-
-// Bob: from ipmitool.c
-//    ipmi lib requires it and we also have it here to extend ipmi tool command sets (if needed).
-
-
-#if 0 // Bob: temporarily disabled
-extern int ipmi_echo_main(struct ipmi_intf * intf, int argc, char ** argv);
-extern int ipmi_set_main(struct ipmi_intf * intf, int argc, char ** argv);
-extern int ipmi_exec_main(struct ipmi_intf * intf, int argc, char ** argv);
-#endif
 struct ipmi_cmd ipmitool_cmd_list[] = {
 	{ ipmi_raw_main,     "raw",     "Send a RAW IPMI request and print response" },
 	{ ipmi_rawi2c_main,  "i2c",     "Send an I2C Master Write-Read command and print response" },
@@ -94,142 +69,107 @@ struct ipmi_cmd ipmitool_cmd_list[] = {
 	{ ipmi_fwum_main,    "fwum",	"Update IPMC using Kontron OEM Firmware Update Manager" },
 	{ ipmi_firewall_main,"firewall","Configure Firmware Firewall" },
 	{ ipmi_delloem_main, "delloem", "OEM Commands for Dell systems" },
-#if 0 // Bob: temporarily disabled
-#ifdef HAVE_READLINE
-	{ ipmi_shell_main,   "shell",   "Launch interactive IPMI shell" },
-#endif
-	{ ipmi_exec_main,    "exec",    "Run list of commands from file" },
-	{ ipmi_set_main,     "set",     "Set runtime variable for shell and exec" },
-	{ ipmi_echo_main,    "echo",    NULL }, /* for echoing lines to stdout in scripts */
-#endif
 	{ ipmi_hpmfwupg_main,"hpm", "Update HPM components using PICMG HPM.1 file"},
 	{ ipmi_ekanalyzer_main,"ekanalyzer", "run FRU-Ekeying analyzer using FRU files"},
-	{ ipmi_ime_main,          "ime", "Update Intel Manageability Engine Firmware"},
+	{ ipmi_ime_main,     "ime", "Update Intel Manageability Engine Firmware"},
 	{ NULL },
 };
-
-// Basic test stuff
 
 void *intf_load(char* name)
 {
 	struct ipmi_intf *intf = NULL;
-
-        if (!name)
-                return NULL;
-        intf = ipmi_intf_load(name);
-
+    if (!name)
+        return NULL;
+        
+	intf = ipmi_intf_load(name);
 	if (!intf) {
-		printf("Can't get interface for '%s'\n",name);
+		printf("no interface for %s'\n",name);
 		return NULL;
 	}
-
-	printf("returning interface 0x%lx\n",(long unsigned int)intf);
-
 	return (void*)intf;
 }
-
-// hard coded API examples
-// Do additional sanity checks in C code
-// return OK (1) or negative number for error
-// JS side should deal with what to do based on errors
 
 int intf_session_set_hostname(void* intf,char* host)
 {
 	if (!intf || !host)
-                return -1;
-
-	printf("interface: 0x%lx\n", (long unsigned int)intf);
-
+        return -1;
 	ipmi_intf_session_set_hostname(intf, host);
-
-	return OK;
+	return 0;
 }
-
 
 int intf_session_set_username(void* intf,char* username)
 {
 	if (!intf || !username)
-                return -1;
-
+        return -1;
 	ipmi_intf_session_set_username(intf, username);
-
-	return OK;
+	return 0;
 }
-
 
 int intf_session_set_password(void* intf,char* password)
 {
 	if (!intf || !password)
-                return -1;
-
+        return -1;
 	ipmi_intf_session_set_password(intf, password);
-
-	return OK;
+	return 0;
 }
 
 int chassis_power_status(void* intf)
 {
-	if (!intf) return -1;
-	return  ipmi_chassis_power_status(intf);
+	if (!intf) 
+        return -1;
+	return ipmi_chassis_power_status(intf);
 }
 
 int get_user_name(void *intf, int id, char *buf)
 {
-	char name[200];
+	struct user_name_t un;
+	memset(&un, 0, sizeof(struct user_name_t));
+	un.user_id = id;
 
-	name[0] = '\0';
-
-	if (ipmi_get_user_name(intf, id, name) == 0) {
-		printf("ipmi get user name returns 0 , '%s'\n", name);
-		memset(buf, 0, 200);
-		strcpy(buf,name);
-		return strlen(name);
+	if (_ipmi_get_user_name(intf, &un) == 0) {
+		memset(buf, 0, 17);
+		strcpy(buf,un.user_name);
+		return strlen(un.user_name);
 	}
-
-	printf("ipmi get user name error\n");
-
 	return -1;
 }
 
-// just to test argv[] passing between C and node via FFI
-int test_argv(void *intf, int argc, char *argv[])
-{
-	int i;
-
-	printf("argc %d\n",argc);
-
-	for (i = 0; i < argc; i++)
-		printf("argv[%d] : %s\n", i, argv[i]);
-
-	printf("%d\n", atoi(argv[2]));
-
-	return OK;
-}
-
-
-
-struct ipmi_intf * start_interface(char* intf_name, char *host, char *user, char *pass)
-{
-	if (!intf_name || !host || !user || !pass)
-                return NULL;
-
-	return  ipmi_start_interface(intf_name, host, user, pass);
-}
-
-
 int finish_interface(struct ipmi_intf *intf)
 {
-        if (!intf)
-                return -1;
-
-        return ipmi_finish_interface(intf);
+    if (!intf)
+        return -1;
+    ipmi_cleanup(intf);
+	return 0;
 }
 
-int run_command_argv(struct ipmi_intf *intf, int argc, char *argv[])
+struct ipmi_cmd *ipmicmd_lookup( const char *name )
 {
-        if (!intf)
-                return -1;
+    int i;
+	for (i = 0; i < sizeof(ipmitool_cmd_list) / 
+                    sizeof(ipmitool_cmd_list[0]); i++) {
+		if (NULL != ipmitool_cmd_list[i].name) {
+			if (!strncmp(name, 
+                         ipmitool_cmd_list[i].name, 
+                         strlen(ipmitool_cmd_list[i].name))) 
+				return ((struct ipmi_cmd*)&ipmitool_cmd_list[i]);
+		}
+	}
+	return NULL;
+}
 
-        return ipmi_run_command(intf, argc,argv);
+int run_command(struct ipmi_intf *intf, int argc, char **argv)
+{
+	struct ipmi_cmd *cmd = NULL;
+	char *name = argv[0];
+    if (!intf) {
+        printf("invalid interface\n");
+        return -1;
+	}
+	cmd = ipmicmd_lookup(name);
+	if (!cmd) {
+        printf("lookup error for '%s'\n", name);
+        return -1;
+	}
+	return cmd->func(intf,argc-1,argv+1);	
 }
 
