@@ -1,3 +1,15 @@
+Based on project https://github.com/jaredhanson/node-ffi-ipmi
+
+To Build:
+
+Run ```npm install```
+
+Run ```make```
+
+Run ```nodejs ipmi.js <host> <user> <password>```
+
+See ipmi.js for example how to use FFI to reference libipmi.so
+
 node-ffi-ipmi
 =============
 
