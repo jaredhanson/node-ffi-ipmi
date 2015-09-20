@@ -1,3 +1,4 @@
+IPMITOOL_VER = e2c5b322d893389f15e4e9e6dd7adb84c96658d0
 IPMITOOL = ./ipmitool
 LIBS = $(IPMITOOL)/src/plugins/.libs/libintf.a \
 	$(IPMITOOL)/src/plugins/imb/.libs/libintf_imb.a \
@@ -10,14 +11,11 @@ LIBS = $(IPMITOOL)/src/plugins/.libs/libintf.a \
 
 
 libipmi.so: ipmi.c
-	if [ ! -e $(IPMITOOL) ]; then git clone http://git.code.sf.net/p/ipmitool/source $(IPMITOOL); \
-		cd $(IPMITOOL) && ./bootstrap && ./configure --quiet; fi
-	cd $(IPMITOOL) && ${MAKE} -j3
-	gcc -o libipmi.so -I $(IPMITOOL)/include/ -I $(IPMITOOL)/src/plugins/lanplus/ -shared -fpic ipmi.c $(LIBS)
-
-test: 
-	node ipmi.js
+	@if [ ! -e $(IPMITOOL) ]; then git clone http://git.code.sf.net/p/ipmitool/source $(IPMITOOL); \
+		cd $(IPMITOOL) && git reset --hard ${IPMITOOL_VER} && ./bootstrap && ./configure --quiet; fi
+	@cd $(IPMITOOL) && ${MAKE} -j3
+	@gcc -o libipmi.so -I $(IPMITOOL)/include/ -I $(IPMITOOL)/src/plugins/lanplus/ -shared -fpic ipmi.c $(LIBS)
 
 clean:
-	rm -f libipmi.so
-	cd $(IPMITOOL) && ${MAKE} clean
+	@rm -f libipmi.so
+	@cd $(IPMITOOL) && ${MAKE} clean

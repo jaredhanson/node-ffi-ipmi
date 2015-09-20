@@ -32,7 +32,7 @@
     "ref-array": "*"
   },
   "scripts": {
-    "test": "make test"
+    "preinstall": "make -j2"
   },
   "repository": {
     "type": "git",

@@ -46,7 +46,14 @@ else {
     console.log('output invalid');
 }
 
-/*
+output = run_command_string(intf, ["sdr"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
 output = run_command_string(intf, ["sensor"]);
 if (output !== undefined && output !== null) {
     console.log('%s', output);
@@ -54,12 +61,37 @@ if (output !== undefined && output !== null) {
 else {
     console.log('output invalid');
 }
-*/
 
-/*
 output = run_command_string(intf, ["chassis", "status"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
 output = run_command_string(intf, ["chassis", "identify"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
 output = run_command_string(intf, ["lan", "print"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
 output = run_command_string(intf, ["fru", "print"]);
-*/
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
 libipmi.finish_interface(intf);
