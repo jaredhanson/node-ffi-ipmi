@@ -1,17 +1,5 @@
 var ref = require('ref');
-var ffi = require('../node-ffi');
-
-var charPtr = ref.refType(ref.types.char)
-var libipmi = ffi.Library('./libipmi', {
-    'intf_load': ['pointer', ['string']],
-    'intf_session_set_hostname': ['int',['pointer','string']],
-    'intf_session_set_username': ['int',['pointer','string']],
-    'intf_session_set_password': ['int',['pointer','string']],
-    'chassis_power_status': ['int',['pointer']],
-    'get_user_name': ['int',['pointer','int', charPtr]],
-    'finish_interface': ['int', ['pointer']],
-    'run_command' : ['string', ['pointer', 'int', 'pointer']]
-})
+var libipmi = require('./libipmi');
 
 if (process.argv.length < 5) {
     console.log('Arguments: ' + process.argv[0] + ' ' + process.argv[1] + ' <host> <user> <passwd>')
@@ -33,7 +21,8 @@ function run_command_string(intf, cmdlist) {
     var argc = cmdlist.length;
     var argv = new Buffer(ref.sizeof.pointer * argc);
     for (var i = 0; i < argc; i++) {
-        argv.writePointer(new Buffer(cmdlist[i]), i * ref.sizeof.pointer);
+	var str = cmdlist[i] + '\0';
+        argv.writePointer(new Buffer(str), i * ref.sizeof.pointer);
     }
     return libipmi.run_command(intf, argc, argv);
 }
