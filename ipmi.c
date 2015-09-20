@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <ipmitool/ipmi.h>
 #include <ipmitool/ipmi_intf.h>
@@ -39,6 +44,7 @@
 
 int csv_output = 0;
 int verbose = 0;
+
 
 struct ipmi_cmd ipmitool_cmd_list[] = {
 	{ ipmi_raw_main,     "raw",     "Send a RAW IPMI request and print response" },
@@ -157,19 +163,113 @@ struct ipmi_cmd *ipmicmd_lookup( const char *name )
 	return NULL;
 }
 
-int run_command(struct ipmi_intf *intf, int argc, char **argv)
+void free_out_buffer( unsigned char *buf )
 {
+    if (buf)
+        free(buf);
+}
+
+unsigned char *create_out_buffer( const size_t len )
+{
+    unsigned char *buffer = (unsigned char*)malloc(len);
+    if (!buffer)
+        printf("error creating output buffer (%s)\n",
+            strerror(errno));
+    return buffer;
+}
+
+#define F_TEMPLATE    \
+    ("libipmi.XXXXXX")
+#define F_TEMPLATE_LN \
+    (sizeof(char)*strlen(F_TEMPLATE))
+
+unsigned char * run_command(struct ipmi_intf *intf, int argc, char **argv)
+{
+    FILE *fp = NULL;
+    size_t filesz;
+    fpos_t pos;
 	struct ipmi_cmd *cmd = NULL;
-	char *name = argv[0];
+    unsigned char *buf = NULL;
+    int stdout_sv = dup(fileno(stdout)),
+        tmpfd;
+    char tmpfn[F_TEMPLATE_LN];
+    strncpy(tmpfn, F_TEMPLATE, F_TEMPLATE_LN);
+    
     if (!intf) {
         printf("invalid interface\n");
-        return -1;
+        return NULL;
 	}
-	cmd = ipmicmd_lookup(name);
+    cmd = ipmicmd_lookup(argv[0]);
 	if (!cmd) {
-        printf("lookup error for '%s'\n", name);
-        return -1;
+        printf("lookup error for '%s' command\n", 
+            argv[0]);
+        return NULL;
 	}
-	return cmd->func(intf,argc-1,argv+1);	
+
+    tmpfd = mkostemp(tmpfn, O_CREAT|O_SYNC);
+    if (0 > tmpfd) {
+        printf("error opening tmpfile (%s)\n",
+            strerror(errno));
+        return NULL;
+    }
+    fp = fdopen(tmpfd, "w+");
+
+    fflush(stdout);
+    fgetpos(stdout, &pos);
+    if (0 > dup2(tmpfd, fileno(stdout))) {
+        printf("error redirecting stdout (%s)\n",
+            strerror(errno));
+        fclose(fp);
+        unlink(tmpfn);
+        return NULL;
+    }
+    
+    /* exec the command */
+    if (0 > cmd->func(intf,argc-1,argv+1)) {
+        printf("error executing command %s\n", 
+            cmd->name);
+        fclose(fp);
+        unlink(tmpfn);
+        return NULL;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    filesz = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (!filesz) {
+        printf("file size was zero\n");
+        fclose(fp);
+        unlink(tmpfn);
+        return NULL;
+    }
+
+    buf = (char*)create_out_buffer(sizeof(char)*filesz);
+    if (!buf) {
+        printf("error creating output buffer (%s)\n",
+            strerror(errno));
+        fclose(fp);
+        unlink(tmpfn);
+        return NULL;
+    }
+
+    if (filesz != fread(buf, 1, filesz, fp)) {
+        printf("error reading buffer with size %lu\n", 
+            filesz);
+        buf = NULL;
+    }
+    if (buf)
+        buf[filesz] = '\0';
+
+    fflush(stdout);
+    dup2(stdout_sv, fileno(stdout));
+    close(stdout_sv);
+    clearerr(stdout);
+    fsetpos(stdout, &pos);
+    fclose(fp);
+    unlink(tmpfn);
+    return buf;
 }
+
+
+
 

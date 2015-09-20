@@ -9,8 +9,8 @@ var libipmi = ffi.Library('./libipmi', {
     'intf_session_set_password': ['int',['pointer','string']],
     'chassis_power_status': ['int',['pointer']],
     'get_user_name': ['int',['pointer','int', charPtr]],
-    'finish_interface': [ 'int', ['pointer']],
-    'run_command' : [ 'int', [ 'pointer', 'int', 'pointer']]
+    'finish_interface': ['int', ['pointer']],
+    'run_command' : ['string', ['pointer', 'int', 'pointer']]
 })
 
 if (process.argv.length < 5) {
@@ -27,21 +27,39 @@ console.log('host: %s, user: %s, password: %s', host, user, password);
 var intf = libipmi.intf_load('lan');
 var result = libipmi.intf_session_set_hostname(intf, host);
 result = libipmi.intf_session_set_username(intf, user);
-result = libipmi.intf_session_set_password(intf,password);
+result = libipmi.intf_session_set_password(intf, password);
 
 function run_command_string(intf, cmdlist) {
     var argc = cmdlist.length;
     var argv = new Buffer(ref.sizeof.pointer * argc);
     for (var i = 0; i < argc; i++) {
-       argv.writePointer(new Buffer(cmdlist[i]), i * ref.sizeof.pointer);
+        argv.writePointer(new Buffer(cmdlist[i]), i * ref.sizeof.pointer);
     }
-    libipmi.run_command(intf, argc, argv);
+    return libipmi.run_command(intf, argc, argv);
 }
 
-run_command_string(intf, ["raw", "6", "1"]);
-run_command_string(intf, ["chassis", "status"]);
-run_command_string(intf, ["chassis", "identify"]);
-run_command_string(intf, ["lan", "print"]);
-run_command_string(intf, ["sensor"]);
-run_command_string(intf, ["fru", "print"]);
+output = run_command_string(intf, ["raw", "6", "1"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+
+/*
+output = run_command_string(intf, ["sensor"]);
+if (output !== undefined && output !== null) {
+    console.log('%s', output);
+}
+else {
+    console.log('output invalid');
+}
+*/
+
+/*
+output = run_command_string(intf, ["chassis", "status"]);
+output = run_command_string(intf, ["chassis", "identify"]);
+output = run_command_string(intf, ["lan", "print"]);
+output = run_command_string(intf, ["fru", "print"]);
+*/
 libipmi.finish_interface(intf);
