@@ -191,7 +191,10 @@ unsigned char * run_command(struct ipmi_intf *intf, int argc, char **argv)
 	struct ipmi_cmd *cmd = NULL;
     unsigned char *buf = NULL;
     int stdout_sv = dup(fileno(stdout)),
-        tmpfd;
+        tmpfd, 
+        i,
+        argc_sv = 0;
+    char *argv_sv[256];
     char tmpfn[F_TEMPLATE_LN];
     strncpy(tmpfn, F_TEMPLATE, F_TEMPLATE_LN);
     
@@ -199,12 +202,28 @@ unsigned char * run_command(struct ipmi_intf *intf, int argc, char **argv)
         printf("invalid interface\n");
         return NULL;
 	}
-    cmd = ipmicmd_lookup(argv[0]);
-	if (!cmd) {
-        printf("lookup error for '%s' command\n", 
-            argv[0]);
+
+    for (i=0; i<argc; i++) {
+        /* handle special options */
+        if (argv[i][0] == '-') { 
+            switch (argv[i][1]) { 
+                case 'c': csv_output = 1; break;
+                case 'v': verbose = 1; break;
+                default: break;
+            }
+        /* save the valid command args */
+        } else { 
+            argv_sv[argc_sv] = argv[i];
+            struct ipmi_cmd *entry = ipmicmd_lookup(argv[i]);
+            if (entry)
+                cmd = entry;
+            argc_sv++;
+        }
+    }
+    if (!cmd) {
+        printf("command entry lookup error\n");
         return NULL;
-	}
+    }
 
     tmpfd = mkostemp(tmpfn, O_CREAT|O_SYNC);
     if (0 > tmpfd) {
@@ -225,7 +244,7 @@ unsigned char * run_command(struct ipmi_intf *intf, int argc, char **argv)
     }
     
     /* exec the command */
-    if (0 > cmd->func(intf,argc-1,argv+1)) {
+    if (0 > cmd->func(intf,argc_sv-1,argv_sv+1)) {
         printf("error executing command %s\n", 
             cmd->name);
         fclose(fp);

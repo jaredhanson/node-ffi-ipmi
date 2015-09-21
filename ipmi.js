@@ -27,7 +27,7 @@ function run_command_string(intf, cmdlist) {
     return libipmi.run_command(intf, argc, argv);
 }
 
-output = run_command_string(intf, ["raw", "6", "1"]);
+output = run_command_string(intf, ["-c", "-v", "sdr"]);
 if (output !== undefined && output !== null) {
     console.log('%s', output);
 }
@@ -35,7 +35,8 @@ else {
     console.log('output invalid');
 }
 
-output = run_command_string(intf, ["sdr"]);
+/*
+output = run_command_string(intf, ["raw", "6", "1"]);
 if (output !== undefined && output !== null) {
     console.log('%s', output);
 }
@@ -82,5 +83,5 @@ if (output !== undefined && output !== null) {
 else {
     console.log('output invalid');
 }
-
+*/
 libipmi.finish_interface(intf);

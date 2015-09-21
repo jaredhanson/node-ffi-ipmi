@@ -1,7 +1,11 @@
+'use strict';
+
+var di = require('di');
 var ref = require('ref');
-var ffi = require('../node-ffi');
+var ffi = require('ffi');
+
 var charPtr = ref.refType(ref.types.char)
-var libipmi = ffi.Library('./libipmi', {
+var libipmi = ffi.Library('libipmi', {
     'intf_load': ['pointer', ['string']],
     'intf_session_set_hostname': ['int',['pointer','string']],
     'intf_session_set_username': ['int',['pointer','string']],
@@ -11,4 +15,4 @@ var libipmi = ffi.Library('./libipmi', {
     'finish_interface': ['int', ['pointer']],
     'run_command' : ['string', ['pointer', 'int', 'pointer']]
 })
-module.exports = Object.create(libipmi);
+module.exports = libipmi;
