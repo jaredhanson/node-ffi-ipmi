@@ -1,11 +1,10 @@
 'use strict';
 
-var di = require('di');
 var ref = require('ref');
 var ffi = require('ffi');
 
 var charPtr = ref.refType(ref.types.char)
-var libipmi = ffi.Library('libipmi', {
+var libipmi = ffi.Library('./libipmi', {
     'intf_load': ['pointer', ['string']],
     'intf_session_set_hostname': ['int',['pointer','string']],
     'intf_session_set_username': ['int',['pointer','string']],
