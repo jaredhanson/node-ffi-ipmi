@@ -1,0 +1,11 @@
+Source: libipmi
+Section: ipmi
+Priority: optional
+Maintainer: Joseph Longever <joseph.longever@emc.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+
+Package: libipmi
+Architecture: all
+Depends: ${misc:Depends}
+Description: IPMItool shared library

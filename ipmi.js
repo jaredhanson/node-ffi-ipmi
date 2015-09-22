@@ -1,87 +1,88 @@
 var ref = require('ref');
 var libipmi = require('./libipmi');
 
-if (process.argv.length < 5) {
-    console.log('Arguments: ' + process.argv[0] + ' ' + process.argv[1] + ' <host> <user> <passwd>')
+if (process.argv.length < 6) {
+    console.log('Arguments: ' + process.argv[0] + ' ' + process.argv[1] + ' <interface> <host> <user> <passwd>')
     process.exit()
 }
 
-var host = process.argv[2] || '172.31.128.1';
-var user = process.argv[3] || 'admin';
-var password = process.argv[4] || 'admin';
-console.log('host: %s, user: %s, password: %s', host, user, password);
+var intfname = process.argv[2] || 'lanplus';
+var host = process.argv[3] || '172.31.128.1';
+var user = process.argv[4] || 'admin';
+var password = process.argv[5] || 'admin';
 
-// TODO: test lanplus - debug segfault
-var intf = libipmi.intf_load('lan');
-var result = libipmi.intf_session_set_hostname(intf, host);
-result = libipmi.intf_session_set_username(intf, user);
-result = libipmi.intf_session_set_password(intf, password);
+console.log('interface: %s, host: %s, user: %s, password: %s', 
+    intfname, host, user, password);
 
-function run_command_string(intf, cmdlist) {
-    var argc = cmdlist.length;
-    var argv = new Buffer(ref.sizeof.pointer * argc);
-    for (var i = 0; i < argc; i++) {
-	var str = cmdlist[i] + '\0';
-        argv.writePointer(new Buffer(str), i * ref.sizeof.pointer);
-    }
-    return libipmi.run_command(intf, argc, argv);
+var intf = libipmi.intfLoad(intfname);
+if (!intf) {
+    console.log('invalid interface %s', intfname);
 }
-
-output = run_command_string(intf, ["-c", "-v", "sdr"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
+if (0 > libipmi.intfSessionSetHostname(intf, host)) {
+    console.log('error setting host %s', host);
 }
-else {
-    console.log('output invalid');
+if (0 > libipmi.intfSessionSetUsername(intf, user)) {
+    console.log('error setting user %s', user);
+}
+if (0 > libipmi.intfSessionSetPassword(intf, password)) {
+    console.log('error setting password %s', password);
+}
+if (0 > libipmi.intfSessionSetPrvLvl(intf, 0x4)) {
+    console.log('error setting privilage level');
+}
+if (0 > libipmi.intfSessionSetLookupBit(intf, 0x10)) {
+    console.log('error setting lookup bit');
+}
+if (0 > libipmi.intfSessionSetSOLEscChar(intf, '~')) {
+    console.log('error setting SOL escape character');
+}
+if (0 > libipmi.intfSessionSetCipherSuiteID(intf, 3)) {
+    console.log('error setting cipher suite');
+}
+if (0 > libipmi.intfOpen(intf)) {
+    console.log('error opening %s interface', intfname);
 }
 
 /*
-output = run_command_string(intf, ["raw", "6", "1"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
-}
-else {
-    console.log('output invalid');
-}
+ *  runCommand function to build argument list, 
+ *  execute the command and log output
+ */
+function runCommand(intf, cmdlist) {
+    /* build up a valid argument list */
+    var argc = cmdlist.length + 1;
+    var argv = new Buffer(ref.sizeof.pointer * argc);
+    argv.writePointer(new Buffer('libipmi\0'), 0);
+    for (var i = 0; i < argc-1; i++) {
+	    var str = cmdlist[i] + '\0';
+        argv.writePointer(new Buffer(str), ((i+1)*ref.sizeof.pointer));
+    }
 
-output = run_command_string(intf, ["sensor"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
+    /* execute the command and handle the output data */
+    var buf = ref.alloc(ref.refType(ref.types.char));
+    var len = ref.alloc('int', 0);
+    var status = libipmi.runCommand(intf, argc, argv, buf, len);
+    if (!buf.isNull()) {
+        if (0 !== len.deref()) {
+            var result = ref.reinterpret(buf.deref(), len.deref());
+            if (0 === status) {
+                console.log('%s', ref.readCString(result));
+            } else {
+                console.log('%s (status=%d)', result, len.deref());
+            }
+            libipmi.freeOutBuf(buf.deref());
+        }
+    } else {
+        console.log('unexpected result');
+    }
 }
-else {
-    console.log('output invalid');
-}
+runCommand(intf, ["-v", "raw", "6", "1"]);
+runCommand(intf, ["-c", "-v", "sdr"]);
+runCommand(intf, ["-c", "sel", "list", "last", "25"]);
+runCommand(intf, ["sensor"]);
+runCommand(intf, ["chassis", "status"]);
+runCommand(intf, ["chassis", "identify"]);
+runCommand(intf, ["lan", "print"]);
+runCommand(intf, ["fru", "print"]);
 
-output = run_command_string(intf, ["chassis", "status"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
-}
-else {
-    console.log('output invalid');
-}
-
-output = run_command_string(intf, ["chassis", "identify"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
-}
-else {
-    console.log('output invalid');
-}
-
-output = run_command_string(intf, ["lan", "print"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
-}
-else {
-    console.log('output invalid');
-}
-
-output = run_command_string(intf, ["fru", "print"]);
-if (output !== undefined && output !== null) {
-    console.log('%s', output);
-}
-else {
-    console.log('output invalid');
-}
-*/
-libipmi.finish_interface(intf);
+/* always cleanup */ 
+libipmi.finishInterface(intf); 

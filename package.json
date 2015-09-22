@@ -6,6 +6,9 @@
       "SpeedOps",
       "Joseph Longever"
   ],
+  "scripts": {
+     "preinstall": "make -j2"
+  },
   "description": "A wrapper for ipmitool via node-ffi",
   "keywords": [
     "foreign",
@@ -17,13 +20,10 @@
     "binding",
     "c"
   ],
-  "homepage": "https://github.com/jlongever/node-ffi-ipmi",
+  "homepage": "https://github.com/jlongever/ffi-ipmi",
   "main": "./libipmi",
   "engines": {
     "node": ">=0.10.0"
-  },
-  "scripts": {
-    "postinstall": "make -j2"
   },
   "dependencies": {
     "ffi": "^2.0.0",
@@ -37,9 +37,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jlongever/node-ffi-ipmi"
+    "url": "https://github.com/jlongever/ffi-ipmi"
   },
   "bugs": {
-    "url": "https://github.com/jlongever/node-ffi-ipmi/issues"
+    "url": "https://github.com/jlongever/ffi-ipmi/issues"
   }
 }
