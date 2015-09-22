@@ -45,7 +45,6 @@
 int csv_output = 0;
 int verbose = 0;
 
-
 struct ipmi_cmd ipmitool_cmd_list[] = {
 	{ ipmi_raw_main,     "raw",     "Send a RAW IPMI request and print response" },
 	{ ipmi_rawi2c_main,  "i2c",     "Send an I2C Master Write-Read command and print response" },
@@ -117,13 +116,6 @@ int intf_session_set_password(void* intf,char* password)
         return -1;
 	ipmi_intf_session_set_password(intf, password);
 	return 0;
-}
-
-int chassis_power_status(void* intf)
-{
-	if (!intf) 
-        return -1;
-	return ipmi_chassis_power_status(intf);
 }
 
 int get_user_name(void *intf, int id, char *buf)
