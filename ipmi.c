@@ -46,10 +46,18 @@
 int csv_output = 0;
 int verbose = 0;
 
-#define F_TEMPLATE    \
-    ("libipmi.XXXXXX")
-#define F_TEMPLATE_LN \
-    (sizeof(char)*strlen(F_TEMPLATE))
+#define STDOUT_TEMPLATE (".stdout.XXXXXX")
+#define STDOUT_F_LN (sizeof(char)*strlen(STDOUT_TEMPLATE))
+#define STDERR_TEMPLATE (".stderr.XXXXXX")
+#define STDERR_F_LN (sizeof(char)*strlen(STDERR_TEMPLATE))
+
+#if !defined(__minlen)
+# define __minlen(a, b) ({ int x=strlen(a); int y=strlen(b); (x < y) ? x : y;})
+#endif
+
+#if !defined(__maxlen)
+# define __maxlen(a, b) ({ int x=strlen(a); int y=strlen(b); (x > y) ? x : y;})
+#endif
 
 /*
  * @brief The global ipmi command list
@@ -244,18 +252,16 @@ int finishInterface( struct ipmi_intf *intf )
  */
 struct ipmi_cmd *ipmiCmdLookup( const char *name )
 {
-    int i;
-	for (i=0; i<sizeof(ipmitool_cmd_list) / sizeof(ipmitool_cmd_list[0]); i++) {
-		if (NULL != ipmitool_cmd_list[i].name) {
-            if (!strncmp(name, ipmitool_cmd_list[i].name, 
-                strlen(ipmitool_cmd_list[i].name))) {
-				return ((struct ipmi_cmd*)&ipmitool_cmd_list[i]);
-            }
-		}
-	}
-	return NULL;
+    struct ipmi_cmd *cmd = ipmitool_cmd_list;
+    while (cmd) { 
+        if (cmd->func) 
+            if (0 == strncmp(name, cmd->name, __maxlen(cmd->name,name)))
+                return cmd;
+        cmd++;
+    }
+    return NULL;
 }
-
+    
 /*
  * @brief Check and deallocate output buffer
  */
@@ -302,25 +308,60 @@ int runCommand(struct ipmi_intf *intf,
                char **ppBuf, 
                int *length )
 {
-    FILE *fp = NULL;
-    size_t filesz;
-    fpos_t pos;
+    FILE *outfp = NULL, *errfp = NULL;
+    size_t outfilesz, errfilesz;
+    fpos_t outpos, errpos;
     struct ipmi_cmd *cmd = NULL;
     int stdout_sv = dup(fileno(stdout)),
-        tmpfd, 
-        i, argflag,
+        stderr_sv = dup(fileno(stderr)),
+        stdout_fd, stderr_fd, 
+        argflag,
         argc_sv = 0, rv = 0;
     char **argv_sv;
     char *buf = NULL;
-    char tmpfn[F_TEMPLATE_LN];
-    strncpy(tmpfn, F_TEMPLATE, F_TEMPLATE_LN);
+    
+    char outfn[STDOUT_F_LN], errfn[STDERR_F_LN];
+    strncpy(outfn, STDOUT_TEMPLATE, STDOUT_F_LN);
+    strncpy(errfn, STDERR_TEMPLATE, STDERR_F_LN);
 
-    if (!intf) {
-        printf("invalid interface\n");
+    /* redirect stdout and stderr */
+    stdout_fd = mkostemp(outfn, O_CREAT|O_SYNC);
+    if (0 > stdout_fd) {
+        printf("error opening stdout (%s)\n",
+            strerror(errno));
+        return -1;
+    }
+    outfp = fdopen(stdout_fd, "w+");
+
+    fflush(stdout);
+    fgetpos(stdout, &outpos);
+    if (0 > dup2(stdout_fd, fileno(stdout))) {
+        printf("error redirecting stdout (%s)\n",
+            strerror(errno));
+        fclose(outfp);
+        return -1;
+    }
+
+    stderr_fd = mkostemp(errfn, O_CREAT|O_SYNC);
+    if (0 > stderr_fd) {
+        printf("error opening stderr (%s)\n",
+            strerror(errno));
+        fclose(outfp);
+        return -1;
+    }
+    errfp = fdopen(stderr_fd, "w+");
+
+    fflush(stderr);
+    fgetpos(stderr, &outpos);
+    if (0 > dup2(stderr_fd, fileno(stderr))) {
+        printf("error redirecting stderr (%s)\n",
+            strerror(errno));
+        fclose(outfp);
+        fclose(errfp);
         return -1;
     }
     
-    /* handle special options */
+    /* handle special command options */
     optind = 0;
     verbose = 0;
     csv_output = 0;
@@ -329,10 +370,17 @@ int runCommand(struct ipmi_intf *intf,
             case 'v': verbose++; break;
             case 'c': csv_output = 1; break;
             default: 
-                printf("invalid option %s\n", 
-                    argv[optind]);
-                return -1;
+                printf("invalid option %s\n", argv[optind]);
+                rv = -1;
+                goto cleanup;
         }
+    }
+
+    /* verify the interface and setup the command */
+    if (!intf) {
+        printf("invalid interface\n");
+        rv = -1;
+        goto cleanup;
     }
 
     initLog();
@@ -346,26 +394,8 @@ int runCommand(struct ipmi_intf *intf,
     if (!cmd) {
         printf("command entry lookup error %s\n",
             argv_sv[0]);
-        return -1;
-    }
-
-    /* redirect stdout */
-    tmpfd = mkostemp(tmpfn, O_CREAT|O_SYNC);
-    if (0 > tmpfd) {
-        printf("error opening tmpfile (%s)\n",
-            strerror(errno));
-        return -1;
-    }
-    fp = fdopen(tmpfd, "w+");
-
-    fflush(stdout);
-    fgetpos(stdout, &pos);
-    if (0 > dup2(tmpfd, fileno(stdout))) {
-        printf("error redirecting stdout (%s)\n",
-            strerror(errno));
-        fclose(fp);
-        funlink(tmpfn);
-        return -1;
+        rv = -1;
+        goto cleanup;
     }
     
     /* exec the command */
@@ -373,48 +403,70 @@ int runCommand(struct ipmi_intf *intf,
     if (0 > rv) {
         printf("error executing %s command\n", 
             cmd->name);
-        fclose(fp);
-        funlink(tmpfn);
-        return rv;
+        goto cleanup;
     }
 
-    fseek(fp, 0, SEEK_END);
-    filesz = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    if (!filesz) {
-        printf("file size was zero\n");
-        fclose(fp);
-        funlink(tmpfn);
-        return -1;
+    /* get the redirected stdout and stderr size */
+    fseek(outfp, 0, SEEK_END);
+    outfilesz = ftell(outfp);
+    fseek(outfp, 0, SEEK_SET);
+
+    fseek(errfp, 0, SEEK_END);
+    errfilesz = ftell(errfp);
+    fseek(errfp, 0, SEEK_SET);
+
+    if (!(outfilesz+errfilesz)) {
+        printf("redirect file size was zero\n");
+        rv = -1;
+        goto cleanup;
     }
 
-    /* handle stdout data */
-    buf = (char*)createOutBuf(sizeof(char)*filesz);
+    /* generate an output buffer and copy the redirected stdout and stderr output */
+    buf = (char*)createOutBuf(sizeof(char)*outfilesz+errfilesz);
     if (!buf) {
         printf("error creating output buffer (%s)\n",
             strerror(errno));
-        fclose(fp);
-        funlink(tmpfn);
-        return -1;
+        rv = -1;
+        goto cleanup;
     }
 
-    if (filesz != fread(buf, 1, filesz, fp)) {
-        printf("error reading buffer with size %lu\n", 
-            filesz);
+    if (outfilesz != fread(buf, 1, outfilesz, outfp)) {
+        printf("error reading stdout with size %lu\n", 
+            outfilesz);
         freeOutBuf(buf);
+        rv = -1;
+        goto cleanup;
+    }
+    if (errfilesz != fread(buf+outfilesz, 1, errfilesz , errfp)) {
+        printf("error reading stderr with size %lu\n", 
+            errfilesz);
+        freeOutBuf(buf);
+        rv = -1;
+        goto cleanup;
     }
     if (buf)
-        buf[filesz] = '\0';
-
-    fflush(stdout);
-    dup2(stdout_sv, fileno(stdout));
-    close(stdout_sv);
-    clearerr(stdout);
-    fsetpos(stdout, &pos);
-    fclose(fp);
-    funlink(tmpfn);
+        buf[outfilesz+errfilesz] = '\0';
 
     *ppBuf = buf;
     *length = strlen(buf);
+
+cleanup:
+
+    /* restore stdout and stderr */
+    dup2(stdout_sv, fileno(stdout));
+    dup2(stderr_sv, fileno(stderr));
+    close(stdout_sv);
+    close(stderr_sv);
+    fflush(stdout);
+    fflush(stderr);
+    clearerr(stdout);
+    clearerr(stderr);
+    fsetpos(stdout, &outpos);
+    fsetpos(stderr, &errpos);
+    fclose(outfp);
+    fclose(errfp);
+    funlink(outfn);
+    funlink(errfn);
+
     return rv;
 }

@@ -61,28 +61,28 @@ function runCommand(intf, cmdlist) {
     var buf = ref.alloc(ref.refType(ref.types.char));
     var len = ref.alloc('int', 0);
     var status = libipmi.runCommand(intf, argc, argv, buf, len);
-    if (!buf.isNull()) {
-        if (0 !== len.deref()) {
-            var result = ref.reinterpret(buf.deref(), len.deref());
-            if (0 === status) {
-                console.log('%s', ref.readCString(result));
-            } else {
-                console.log('%s (status=%d)', result, len.deref());
-            }
-            libipmi.freeOutBuf(buf.deref());
+    if (!buf.isNull() && 0 !== len.deref()) {
+        var result = ref.reinterpret(buf.deref(), len.deref());
+        if (0 === status) {
+            console.log('%s', ref.readCString(result));
+        } else {
+            console.log('%s (status=%d)', result, len.deref());
         }
+        libipmi.freeOutBuf(buf.deref());
+      
     } else {
         console.log('unexpected result');
     }
 }
 runCommand(intf, ["-v", "raw", "6", "1"]);
-runCommand(intf, ["-c", "-v", "sdr"]);
 runCommand(intf, ["-c", "sel", "list", "last", "25"]);
+runCommand(intf, ["-c", "-v", "sdr"]);
 runCommand(intf, ["sensor"]);
 runCommand(intf, ["chassis", "status"]);
 runCommand(intf, ["chassis", "identify"]);
 runCommand(intf, ["lan", "print"]);
 runCommand(intf, ["fru", "print"]);
+
 
 /* always cleanup */ 
 libipmi.finishInterface(intf); 
