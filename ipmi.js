@@ -74,15 +74,17 @@ function runCommand(intf, cmdlist) {
         console.log('unexpected result');
     }
 }
+runCommand(intf, ["-c", "-v", "sdr"]);
+/*
 runCommand(intf, ["-v", "raw", "6", "1"]);
 runCommand(intf, ["-c", "sel", "list", "last", "25"]);
-runCommand(intf, ["-c", "-v", "sdr"]);
+
 runCommand(intf, ["sensor"]);
 runCommand(intf, ["chassis", "status"]);
 runCommand(intf, ["chassis", "identify"]);
 runCommand(intf, ["lan", "print"]);
 runCommand(intf, ["fru", "print"]);
-
+*/
 
 /* always cleanup */ 
 libipmi.finishInterface(intf); 

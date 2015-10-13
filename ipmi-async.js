@@ -7,129 +7,120 @@ if (process.argv.length < 6) {
     process.exit()
 }
 
-var intfname = process.argv[2] || 'lanplus';
-var host = process.argv[3] || '172.31.128.1';
-var user = process.argv[4] || 'admin';
-var password = process.argv[5] || 'admin';
-
-console.log('interface: %s, host: %s, user: %s, password: %s', 
-    intfname, host, user, password);
-
 function ipmiTool(cmdlist) {
+
+    var intfname = process.argv[2] || 'lanplus';
+    var host = process.argv[3] || '172.31.128.1';
+    var user = process.argv[4] || 'admin';
+    var password = process.argv[5] || 'admin';
+
+    console.log('interface: %s, host: %s, user: %s, password: %s', 
+        intfname, host, user, password);
+        
+    if (intfname === "lan" || intfname === "lanplus" ) {
+        if (!user || !password) {
+            return Promise.reject(new Error("missing parameters for " + intfname + "interface"));
+        }
+    }
+    if (!cmdlist.length) {
+        return Promise.reject(new Error("missing required command parameter"));
+    }
+    
     var intf = libipmi.intfLoad(intfname);
-    if (intf.isNull())
-        return Promise.reject(new Error("error loading " + intfname + " interface"));
-                
-    return new Promise(function(resolve, reject) {
-        libipmi.intfSessionSetHostname.async(intf, host, function(err, res) {
-            if (err) throw err;
-            if (0 > res)
-                reject("error setting host");
-            else
-                resolve(intf);                
-        });            
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfSessionSetUsername.async(intf, user, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error setting user");
-                else
-                    resolve(intf);                
+    if (intf.isNull()) {
+        return Promise.reject("error loading " + intfname + " interface");
+    }
+
+    return new Promise(function(resolve, reject) {  
+        return Promise.fromNode(libipmi.intfSessionSetHostname.async
+        .bind(libipmi, intf, host)).then(function(res) {
+            if (0 > res) {
+                throw new Error("error setting host");
+            }
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfSessionSetUsername.async
+            .bind(libipmi, intf, user)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error setting user");
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfSessionSetPassword.async(intf, password, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error setting password");
-                else
-                    resolve(intf);                
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfSessionSetPassword.async
+            .bind(libipmi, intf, password)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error setting password");
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfSessionSetPrvLvl.async(intf, 0x4, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error setting privilage level");
-                else
-                    resolve(intf);                
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfSessionSetPrvLvl.async
+            .bind(libipmi, intf, 0x4)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error setting privilage level");
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfSessionSetLookupBit.async(intf, 0x10, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error setting lookup bit");
-                else
-                    resolve(intf);                
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfSessionSetLookupBit.async
+            .bind(libipmi, intf, 0x10)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error setting lookup bit");
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfSessionSetCipherSuiteID.async(intf, 3, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error setting cipher suite id");
-                else
-                    resolve(intf);                
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfSessionSetCipherSuiteID.async
+            .bind(libipmi, intf, 3)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error setting cipher suite id");
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
-            libipmi.intfOpen.async(intf, function(err, res) {
-                if (err) throw err;
-                if (0 > res)
-                    reject("error opening interface " + intfname);
-                else
-                    resolve(intf);                
+        }).then(function() {
+            return Promise.fromNode(libipmi.intfOpen.async
+            .bind(libipmi, intf)).then(function(res) {
+                if (0 > res) {
+                    throw new Error("error opening interface " + intfname);
+                }
             });            
-        });
-    }).then(function(intf) {
-        return new Promise(function(resolve, reject) {
+        }).then(function() {
             var argc = cmdlist.length + 1;
             var argv = new Buffer(ref.sizeof.pointer * argc);
             argv.writePointer(new Buffer('libipmi\0'), 0);
             for (var i = 0; i < argc-1; i++) {
-	            var str = cmdlist[i] + '\0';
+                var str = cmdlist[i] + '\0';
                 argv.writePointer(new Buffer(str), ((i+1)*ref.sizeof.pointer));
             }
             
             var buf = ref.alloc(ref.refType(ref.types.char));
             var len = ref.alloc('int', 0);
-            libipmi.runCommand.async(intf, argc, argv, buf, len, function(err,status) {
+            return Promise.fromNode(libipmi.runCommand.async
+            .bind(libipmi, intf, argc, argv, buf, len)).then(function(status) {
                 if (!buf.isNull() && 0 !== len.deref()) {
-                    var result = ref.reinterpret(buf.deref(), len.deref());
+                    var result = ref.readCString(ref.reinterpret(buf.deref(), len.deref()));
                     if (0 === status) {
-                        console.log('%s', ref.readCString(result));
-                        libipmi.freeOutBuf.async(buf.deref(), function() {
-                            resolve(intf);
-                        });
+                        console.log(result);
+                        resolve(result);
                     } else {
-                        reject(result + " (status=" + status + ")");
+                        reject(result);
                     }
+                    libipmi.freeOutBuf(buf.deref());
                 } else {
-                    reject('unexpected result');
+                    reject('unexpected ipmi command result');
                 }     
             });
+        }).catch(function(err) {
+            console.log(err.message);
+            reject(err);
+        }).finally(function() {
+            /* This should never fail if intfLoad() succeeded, 
+               otherwise we would never get here */
+            libipmi.finishInterface(intf);
         });
-    }).finally(function() {
-        libipmi.finishInterface.async(intf, function(err, res) {
-            if (err)  
-                console.log(err.message);
-            if (0 > res)
-                console.log("error finishing " + intfname + " interface (status=" + res + ")");
-        }); 
     });
 }
-ipmiTool(["-c", "-v", "sdr"]);
+ipmiTool(["sensor"]);
 /*
+ipmiTool(["-c", "-v", "sdr"]);
 ipmiTool(["-v", "raw", "6", "1"]);
 ipmiTool(["-c", "sel", "list", "last", "25"]);
-ipmiTool(["sensor"]);
+
 ipmiTool(["chassis", "status"]);
 ipmiTool(["chassis", "identify"]);
 ipmiTool(["lan", "print"]);

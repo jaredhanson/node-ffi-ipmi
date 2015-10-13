@@ -253,12 +253,10 @@ int finishInterface( struct ipmi_intf *intf )
 struct ipmi_cmd *ipmiCmdLookup( const char *name )
 {
     struct ipmi_cmd *cmd = ipmitool_cmd_list;
-    while (cmd) { 
-        if (cmd->func) 
-            if (0 == strncmp(name, cmd->name, __maxlen(cmd->name,name)))
-                return cmd;
-        cmd++;
-    }
+    do { 
+        if (0 == strncmp(name, cmd->name, __maxlen(cmd->name,name)))
+            return cmd;
+    } while(cmd++ && cmd->func);
     return NULL;
 }
     

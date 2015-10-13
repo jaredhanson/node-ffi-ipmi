@@ -1,4 +1,5 @@
 SHELL=/bin/bash
+IPMITOOL_GIT = git://git.code.sf.net/p/ipmitool/source
 IPMITOOL_VER = e2c5b322d893389f15e4e9e6dd7adb84c96658d0
 IPMITOOL = ./ipmitool
 LIBS = $(IPMITOOL)/src/plugins/.libs/libintf.a \
@@ -12,7 +13,7 @@ LIBS = $(IPMITOOL)/src/plugins/.libs/libintf.a \
 
 
 libipmi.so: ipmi.c
-	@if [ ! -e $(IPMITOOL) ]; then git clone --depth 1 http://git.code.sf.net/p/ipmitool/source $(IPMITOOL); \
+	@if [ ! -e $(IPMITOOL) ]; then git clone ${IPMITOOL_GIT} $(IPMITOOL); \
 		cd $(IPMITOOL) && git reset --hard ${IPMITOOL_VER} && ./bootstrap && ./configure --quiet; fi
 	@cd $(IPMITOOL) && ${MAKE} -j2
 	@gcc -o libipmi.so -I $(IPMITOOL)/include/ -I $(IPMITOOL)/src/plugins/lanplus/ -shared -fpic ipmi.c $(LIBS)
